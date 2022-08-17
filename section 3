@@ -1,0 +1,50 @@
+create or replace PROCEDURE "STP_ROBOSCAN_SECTION3"(
+    i_vcCaseNo IN VARCHAR2,     --i_vcUserCode IN VARCHAR2,
+    --i_vcUsedRole IN VARCHAR2,   i_vcIPAddress IN VARCHAR2,
+    io_cuResultSet1 IN OUT SYS_REFCURSOR,    io_cuResultSet2 IN OUT SYS_REFCURSOR,
+    io_cuResultSet3 IN OUT SYS_REFCURSOR
+)
+AS
+    vcQuery1 VARCHAR2(4000);
+    vcQuery2 VARCHAR2(4000);
+    vcQuery3 VARCHAR2(4000);
+BEGIN
+    vcQuery1 := 'SELECT ROWNUM AS ROWPOSITION, C.TRANSACTIONNO, TRANSACTIONBATCHID||CHR(47)||TRANSACTIONID TRANSACTIONID, '||
+            '       A.CUSTOMERID, A.CUSTOMERNAME, A.ACCOUNTNO, COUNTOFALERTS AS GENERATEDALERTSCOUNT, ACCOUNTTYPE, '||
+            '       NVL(TRIM(C.BRANCHCODE),''N.A.'') BRANCHCODE, TRANSACTIONTYPE, '||
+            '       CASE '||
+            '            WHEN DEPOSITORWITHDRAWAL = ''D'' '||
+            '            THEN ''CREDIT'' '||
+            '            ELSE ''DEBIT'' '||
+            '        END DEPOSITORWITHDRAWAL, '||
+            '       CASE '||
+            '            WHEN DEPOSITORWITHDRAWAL = ''D'' '||
+            '            THEN C.AMOUNT||'' '' '||
+            '            ELSE '' '' '||
+            '        END CREDITAMOUNT, '||
+            '       CASE '||
+            '            WHEN DEPOSITORWITHDRAWAL = ''W'' '||
+            '            THEN C.AMOUNT||'' '' '||
+            '            ELSE '' '' '||
+            '        END DEBITAMOUNT, '||
+            '       C.AMOUNT, CURRENCYCODE, CONVERSIONRATE, REPLACE(NARRATION,CHR(39),'''') NARRATION, '||
+            '       FUN_DATETOCHAR(TRANSACTIONDATETIME) TRANSACTIONDATE, C.PRODUCTCODE, '||
+            '       NVL(TRIM(INSTRUMENTCODE),''N.A.'') INSTRUMENTCODE, INSTRUMENTNO, FUN_DATETOCHAR(INSTRUMENTDATE) INSTRUMENTDATE, '||
+            '       COUNTERPARTYID, COUNTERACCOUNTNO, COUNTERPARTYNAME, COUNTERPARTYTYPE, '||
+            '       COUNTERBRANCHCODE, COUNTERBANKCODE, COUNTERPARTYADDRESS, COUNTERCOUNTRYCODE, '||
+            '       ACCTCURRENCYCODE, RATECODE, CHANNELID, CHANNELTYPE, FLOWCODE '||
+            '  FROM COMAML.TB_CASEWORKFLOWDETAILS A '||
+            '  LEFT OUTER JOIN COMAML.TB_TRANSACTIONS C ON A.ACCOUNTNO = C.ACCOUNTNO AND A.CUSTOMERID = C.CUSTOMERID '||
+            '               INNER JOIN TB_ALERTTRANSACTIONMAPPING D ON C.TRANSACTIONNO = D.TRANSACTIONNO '||
+            ' WHERE A.CASENO = '''||i_vcCaseNo||''' ' ;
+OPEN io_cuResultSet1 FOR vcQuery1;
+    vcQuery2 := 'SELECT NULL FROM DUAL';
+OPEN io_cuResultSet2 FOR vcQuery2;
+    vcQuery3 := 'SELECT SUM(AMOUNT) AS TOTALAMOUNT,sum(case when depositorwithdrawal = ''D'' then AMOUNT else 0 end) AS DEBIT,
+                 sum(case when depositorwithdrawal = ''W'' then AMOUNT else 0 end) AS CREDIT,
+                 EXTRACT(YEAR FROM TO_DATE(TRUNC(TRANSACTIONDATETIME))) AS YEAR
+                  FROM (select b.caseno,a.* from TB_TRANSACTIONS a, tb_caseworkflowdetails b)
+                  where caseno = '''||i_vcCaseNo||'''
+                  GROUP BY caseno, EXTRACT(YEAR FROM TO_DATE(TRUNC(TRANSACTIONDATETIME)))';
+OPEN io_cuResultSet3 FOR vcQuery3;
+END STP_ROBOSCAN_SECTION3;
